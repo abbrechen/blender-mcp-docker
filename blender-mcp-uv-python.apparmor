@@ -1,0 +1,127 @@
+# BlenderMCP / uv / python3 AppArmor profile
+# File extension: .apparmor
+#
+# Note:
+# - AppArmor profiles are loaded by the Linux host kernel (e.g. via apparmor_parser).
+# - Docker only references the profile name, not the file path.
+# - This profile is a pragmatic "least privilege" template for:
+#   * uv
+#   * uvx blender-mcp
+#   * python3
+#
+# Assumptions:
+# - Standard installation paths under /usr/bin and /usr/local/bin
+# - uv installs/uses its data under ~/.local/share/uv
+# - uv uses cache under ~/.cache/uv
+# - BlenderMCP connects via TCP to Blender on host:9876
+# - Optional telemetry backend can be reached via HTTPS
+
+#include <tunables/global>
+
+profile blender-mcp-uv-python flags=(attach_disconnected,mediate_deleted) {
+
+  # ------------------------------------------------------------
+  # Baseline
+  # ------------------------------------------------------------
+  # "base" covers the typical standard accesses that Python,
+  # shell utilities, and many Linux programs need.
+  # Without this base you would have to maintain many system paths individually.
+  # If you want to tighten it further, this include can later
+  # be replaced step by step with individual rules.
+  #include <abstractions/base>
+
+  # DNS / name resolution for HTTPS, package downloads, and telemetry.
+  # AppArmor cannot filter ports, only coarse network families
+  # and socket types. Port 9876 must therefore be regulated outside of AppArmor.
+  network inet stream,
+  network inet dgram,
+  network inet6 stream,
+  network inet6 dgram,
+  network unix stream,
+  network unix dgram,
+
+  # ------------------------------------------------------------
+  # Executable programs
+  # ------------------------------------------------------------
+  # uv / uvx (sometimes installed as separate file or symlink)
+  /usr/bin/uv ix,
+  /usr/bin/uvx ix,
+  /usr/local/bin/uv ix,
+  /usr/local/bin/uvx ix,
+  /bin/uv ix,
+  /bin/uvx ix,
+
+  # System Python.
+  # This allows starting the interpreter without switching it to another
+  # profile.
+  /usr/bin/python3 ix,
+  /usr/bin/python3.* ix,
+  /usr/local/bin/python3 ix,
+  /usr/local/bin/python3.* ix,
+  /bin/python3 ix,
+  /bin/python3.* ix,
+
+  # Python / uv-managed interpreters and tool environments.
+  # "owner" ensures that only files in the container user's own home directory
+  # are affected.
+  owner @{HOME}/.local/share/uv/python/** mrwlkix,
+  owner @{HOME}/.local/share/uv/tools/** mrwlkix,
+
+  # In case uv links a tool executable into ~/.local/bin.
+  owner @{HOME}/.local/bin/** ix,
+
+  # ------------------------------------------------------------
+  # Cache, downloads, temporary files
+  # ------------------------------------------------------------
+  # uv cache: packages, wheels, metadata, and build artifacts.
+  # This is important because uv caches here by default.
+  owner @{HOME}/.cache/uv/** mrwlk,
+
+  # In case XDG_DATA_HOME is used instead of ~/.local/share.
+  owner @{HOME}/.local/share/uv/** mrwlk,
+
+  # Temporary directories:
+  # - uv may create temporary files
+  # - blender-mcp writes screenshots to tempfile.gettempdir()
+  /tmp/** mrwlk,
+  /var/tmp/** mrwlk,
+
+  # ------------------------------------------------------------
+  # System resources that Python typically needs to read
+  # ------------------------------------------------------------
+  # CA certificates for HTTPS.
+  /etc/ssl/** r,
+  /etc/ca-certificates/** r,
+  /usr/share/ca-certificates/** r,
+
+  # Name service / resolver configuration.
+  /etc/hosts r,
+  /etc/resolv.conf r,
+  /etc/nsswitch.conf r,
+
+  # Typical runtime libraries and Python standard paths.
+  /lib/** r,
+  /lib64/** r,
+  /usr/lib/** r,
+  /usr/lib64/** r,
+  /usr/share/** r,
+
+  # ------------------------------------------------------------
+  # BlenderMCP specific
+  # ------------------------------------------------------------
+  # Local TCP connection to the Blender addon.
+  # Default host=localhost, port=9876.
+  # The port cannot be restricted here; AppArmor only knows
+  # network families and socket types, not port whitelists.
+  network inet stream,
+
+  # Optional: some setups also use Unix sockets / abstract sockets
+  # internally for libraries or runtime helpers.
+  network unix stream,
+
+  # ------------------------------------------------------------
+  # Avoid write access where possible
+  # ------------------------------------------------------------
+  # Do not grant explicit write permissions on system paths.
+  # Everything not allowed here remains denied by default.
+}

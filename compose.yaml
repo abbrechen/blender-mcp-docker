@@ -1,0 +1,32 @@
+services:
+  blender-mcp:
+    container_name: blender-mcp
+    build:
+      context: .
+      dockerfile: Dockerfile
+    stdin_open: true
+    tty: true
+    image: mcp/blender-mcp
+    read_only: false
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=unconfined
+    tmpfs:
+      - /tmp
+      - /root/.cache
+      - /home/app/.cache
+    environment:
+      UV_CACHE_DIR: /tmp/uv-cache
+      BLENDER_HOST: host.docker.internal
+      BLENDER_PORT: 9876
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - isolated
+
+networks:
+  isolated:
+    driver: bridge
+    internal: false

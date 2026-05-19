@@ -1,0 +1,34 @@
+
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "bash": "ask",
+    "edit": "allow",
+    "read": {
+      "*": "allow",
+      "*.env": "ask",
+      "*.env.*": "ask"
+    },
+    "grep": "allow",
+    "glob": "allow",
+    "webfetch": "ask",
+    "websearch": "ask"
+  },
+  "mcp": {
+    "blender-docker": {
+      "type": "local",
+      "enabled": false,
+      "command": [
+        "docker",
+        "compose",
+        "-p",
+        "blender-mcp",
+        "-f",
+        "PATH_TO_COMPOSE/compose.yaml",
+        "run",
+        "--rm",
+        "blender-mcp"
+      ]
+    }
+  }
+}
