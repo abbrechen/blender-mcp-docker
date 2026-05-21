@@ -16,11 +16,6 @@ services:
     tmpfs:
       - /tmp
       - /root/.cache
-      - /home/app/.cache
-    environment:
-      UV_CACHE_DIR: /tmp/uv-cache
-      BLENDER_HOST: host.docker.internal
-      BLENDER_PORT: 9876
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
